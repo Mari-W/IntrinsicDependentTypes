@@ -1,5 +1,8 @@
+{-# OPTIONS --rewriting #-}
 module IntrinsicDependentTypes where
 
+open import Agda.Builtin.Equality
+open import Agda.Builtin.Equality.Rewrite
 open import Level
 open import Function using (id)
 open import Data.Unit
@@ -135,7 +138,7 @@ data Expr Γ where
   rfl_  : (e : Expr Γ T ν) → Expr Γ (e ≣ e) ν
   _⇝[_] : Expr Γ T ν → T ⇓ₜ τ → Expr Γ τ ν
   ↑_    : (T : Type Γ l ν) → Expr Γ (* l) ν 
-  _ᵣ    : Expr Γ T ν → Expr Γ T red
+  _ᵣ    : Expr Γ T ν → Expr Γ T red -- used in substitutions to lift any construct to a reducable one
 
 -- big step semantics
 
@@ -169,10 +172,21 @@ data _⇓ₑ[_]_ where
 -- renaming
 
 -- lemmas on renaming
-idᵣT≡T : renₜ idᵣ T ≡ T
-idₑx≡x : renₓ idᵣ x ≡ subst (_ ∋_) (sym (idᵣT≡T)) x
-idₑe≡e : {T : Type Γ l ν′} {e : Expr Γ T ν} → 
-         renₑ idᵣ e ≡ subst (λ T → Expr _ T _) (sym (idᵣT≡T)) e
+
+idᵣT≡T : ∀ (T : Type Γ l ν) → renₜ idᵣ T ≡ T
+idᵣT≡T (* l) = {!   !}
+idᵣT≡T `⊤ = {!   !}
+idᵣT≡T (∀x∶ T , T₁) = {!   !}
+idᵣT≡T (x ≣ x₁) = {!   !}
+idᵣT≡T (↓ x) = {!   !}
+idᵣT≡T (T ᵣ) = {!   !}
+-- {-# REWRITE idᵣT≡T #-}
+-- postulate
+idᵣx≡x : ∀ (x : Γ ∋ T) → renₓ idᵣ x ≡ {!   !}
+idᵣe≡e : ∀ (e : Expr Γ T ν) → renₑ idᵣ e ≡ {!   !}
+-- {-# REWRITE idᵣx≡x idᵣe≡e #-}
+idᵣx≡x = {!   !}
+idᵣe≡e = {!   !}
 
 renₜ ρ (* l) = * l
 renₜ ρ `⊤ = `⊤
@@ -181,22 +195,14 @@ renₜ ρ (e₁ ≣ e₂) = renₑ ρ e₁ ≣ renₑ ρ e₂
 renₜ ρ (↓ e) = ↓ renₑ ρ e
 renₜ ρ (T ᵣ) = (renₜ ρ T) ᵣ
 
-wkₜ T = renₜ (wkᵣ idᵣ) T
 
-idᵣT≡T {T = * l} = refl
-idᵣT≡T {T = `⊤} = refl
-idᵣT≡T {T = ∀x∶ T , T′} = {!   !}
-idᵣT≡T {T = e₁ ≣ e₂} = {! cong₂ _≣_ ? ?  !}
-idᵣT≡T {T = ↓ e} = {!   !}
-idᵣT≡T {T = T ᵣ} = {!   !}
+wkₜ = renₜ (wkᵣ idᵣ)
 
-renₓ idᵣ x = {!  x  !}
+renₓ idᵣ x = {!   !}
 renₓ (liftᵣ ρ) here = {! here  !}
 renₓ (liftᵣ ρ) (there x) = {! there (renₓ ρ x)  !}
 renₓ (wkᵣ ρ) x = {! there (renₓ ρ x)  !}
 renₓ (dropᵣ ρ) x = {! renₓ ρ (there x) !}
-
-idₑx≡x {x = x} = {! x  !}
 
 renₑ ρ (` x) = ` renₓ ρ x
 renₑ ρ tt = tt
@@ -207,9 +213,7 @@ renₑ ρ (e ⇝[ ⇓T ]) = renₑ ρ e ⇝[ {! ⇓T  !} ] -- big step preserves
 renₑ ρ (↑ T) = ↑ renₜ ρ T
 renₑ ρ (e ᵣ) = renₑ ρ e ᵣ
 
-wkₑ e = renₑ (wkᵣ idᵣ) e
-
-idₑe≡e {e = e} = {! e  !}
+wkₑ = renₑ (wkᵣ idᵣ)
 
 subₜ σ (* l) = (* l) ᵣ
 subₜ σ `⊤ = `⊤ ᵣ 
@@ -280,4 +284,4 @@ lookup (Γ* ▷ _) (there x) = {!  lookup Γ* x !} -- renaming preserves denotat
 ⟦ rfl e ⟧ₑ Γ* = refl
 ⟦ e ⇝[ ⇓T ] ⟧ₑ Γ* = subst id (⇓ₜ→≡ ⇓T) (⟦ e ⟧ₑ Γ*)
 ⟦ ↑ T ⟧ₑ Γ* = ⟦ T ⟧ₜ Γ*   
-⟦ e ᵣ ⟧ₑ Γ* = ⟦ e ⟧ₑ Γ*        
+⟦ e ᵣ ⟧ₑ Γ* = ⟦ e ⟧ₑ Γ*         
